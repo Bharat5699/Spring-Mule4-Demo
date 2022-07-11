@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:spring="http://www.mulesoft.org/schema/mule/spring" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="8e4e2593-a149-4c7e-af9c-8cd06ba74c65" basePath="/student">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="916f372b-8123-486a-adf6-de40814cd909" >
+		<db:my-sql-connection host="localhost" port="3306" user="admin" password="Admin@123" database="usermanagment"/>
+	</db:config>
+	   <spring:config name="springConfig" files="beans.xml" />
+	    <spring:security-manager>
+    <spring:delegate-security-provider
+      name="memory-provider"
+      delegate-ref="authenticationManager" />
+  </spring:security-manager>
+	<flow name="SaveStudentFlow" doc:id="144bdcb7-e6a5-4af6-9f8f-be45882fce58" >
+		<http:listener doc:name="Listener" doc:id="0a1a4c47-8c33-4dab-bcfe-c4d78a5985e6" config-ref="HTTP_Listener_config" path="/save"/>
+		<flow-ref doc:name="Flow Reference" doc:id="a21d8d35-f72e-4954-a15c-df6d0fea5182" name="authenticationFlow"/>
+		<java:invoke doc:name="SaveStudentMethod" doc:id="a2cf2b67-200f-4dbe-8a70-f34ac09880f6" class="com.example.demo.service.StudentServiceImpl" instance="studentServiceBean" method="saveStudent(com.example.demo.model.Student)">
+			<java:args ><![CDATA[#[%dw 2.0
+ 	
+output application/java
+---
+
+	student: payload as Object {class: "com.example.demo.model.Student"}]]]></java:args>
+		</java:invoke>
+		<choice doc:name="Choice" doc:id="c85a5599-44e6-4f3e-a245-fe0b415e6649" >
+			<when expression="#[!isEmpty(payload)]">
+				<ee:transform doc:name="Transform Message" doc:id="334a47cf-6a2f-4e18-8509-39e0e3aa796b">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+"Data Save Successfully"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="e0ce6a8d-eb0c-48bc-9ba9-4aef8b6b743c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+"Data not saved"]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="FindStudentFlow" doc:id="ce59553e-d846-4a3a-82a7-7e8ded44daf1" >
+		<http:listener doc:name="Listener" doc:id="b5ebe7df-f0be-4c51-9d54-19b16f662767" config-ref="HTTP_Listener_config" path="/{id}"/>
+		<flow-ref doc:name="Flow Reference" doc:id="9f60ff9b-c49c-4879-9881-2281f2f9efe1" name="authenticationFlow"/>
+		<java:invoke doc:name="findStudentByID" doc:id="e33e72a0-25a4-4b11-9a16-c33bb47d15c6" instance="studentServiceBean" class="com.example.demo.service.StudentServiceImpl" method="findStudentById(java.lang.Integer)">
+			<java:args ><![CDATA[#[%dw 2.0
+output application/java
+---
+{
+	id: attributes.uriParams.id}]]]></java:args>
+		</java:invoke>
+		<choice doc:name="findByIdchoice" doc:id="821bfa48-11d0-403e-b407-8301ae58e880" >
+			<when expression='#[!isEmpty(payload) and sizeOf(payload)&gt;0]' >
+				<ee:transform doc:name="FindByIdSuccessMessage" doc:id="da1bcea4-6ac9-4912-9506-e7306c3f58d7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="FindByIdErrorMessage" doc:id="a48d3290-ef8a-4d8a-9db7-7b7154beab34" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+"no record found"]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="UpdateStudentFlow" doc:id="ee8b230c-cb4b-4bf2-9277-a946fd23e918" >
+		<http:listener doc:name="Listener" doc:id="0b2e7575-6c2f-4687-8425-f859027b024b" config-ref="HTTP_Listener_config" path="/update/{id}"/>
+		<flow-ref doc:name="updateFlowReference" doc:id="82de0d8c-018a-4dfc-a85d-d41f50136847" name="authenticationFlow" />
+		<java:invoke doc:name="updateStudent" doc:id="0e56d1fb-2752-4a04-b41c-95281b53e93e" instance="studentServiceBean" class="com.example.demo.service.StudentServiceImpl" method="updateStudent(com.example.demo.model.Student,java.lang.Integer)">
+			<java:args ><![CDATA[#[%dw 2.0
+output application/java
+---
+{
+	student: payload as Object {class: "com.example.demo.model.Student"}
+	,id: attributes.uriParams.id
+}]]]></java:args>
+		</java:invoke>
+		<choice doc:name="updatestudentChoice" doc:id="5a0d206b-ade6-4166-81d1-b7b0eecf224f">
+			<when expression="#[!isEmpty(payload)]">
+				<ee:transform doc:name="updateStudentSucessMessage" doc:id="f0fbb1bd-7582-4554-a582-64a4b6673b8f">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="updateStudentErrorMessage" doc:id="1a36c471-04e8-42d3-a590-f0ea48750122">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+"no record found"]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="DeleteFlow" doc:id="4cf9ab21-3c45-4e74-88ff-54cf3c872c14" >
+		<http:listener doc:name="Listener" doc:id="17d4596c-f01e-472d-8a7c-42693af50240" config-ref="HTTP_Listener_config" path="/delete/{id}"/>
+		<flow-ref doc:name="deleteFlowRef" doc:id="ef3dc269-4e27-4142-b052-0d5265894586" name="authenticationFlow"/>
+		<java:invoke doc:name="DeleteStudent" doc:id="1028f670-545a-48a4-a635-305d8d296568" instance="studentServiceBean" class="com.example.demo.service.StudentServiceImpl" method="deleteStudent(java.lang.Integer)">
+			<java:args ><![CDATA[#[%dw 2.0
+output application/java
+---
+{
+	id: attributes.uriParams.id}]]]></java:args>
+		</java:invoke>
+		<choice doc:name="deletechoice" doc:id="5ba104d9-5de3-4efa-aaa2-8ea01d9e4b89" >
+			<when expression="#[!isEmpty(payload)]" >
+				<ee:transform doc:name="deleteSuccessMessage" doc:id="42b71917-cf94-4cfe-9480-7f4aab7d808e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="deleteErrorMessage" doc:id="bc9f0fc3-6073-4394-ae78-e64cf03f9066" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+"Data not deleted"]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="ListOfStudent" doc:id="08c61348-79a1-4fed-8e3a-45c8ffd02b6c" >
+		<http:listener doc:name="Listener" doc:id="8461faed-9714-400f-b807-4566233705c5" config-ref="HTTP_Listener_config" path="/"/>
+		<flow-ref doc:name="Flow Reference" doc:id="2594be16-6ff9-4e4c-a79d-9e63a18bb575" name="authenticationFlow"/>
+		<java:invoke doc:name="FindAllStudent" doc:id="b8ea89a0-69ed-42e7-a132-2e7a59c9fd44" instance="studentServiceBean" class="com.example.demo.service.StudentServiceImpl" method="findAll()">
+		</java:invoke>
+		<choice doc:name="findAllChoice" doc:id="ea4783ab-b64e-4b5d-805c-bc18b933e4c9" >
+			<when expression="#[!isEmpty(payload)]" >
+				<ee:transform doc:name="findAllSuccessMessage" doc:id="363c7423-d33e-4b92-a70a-bd11ca80cc1b" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="findAllErrorMessage" doc:id="30dd9840-7b9f-46bb-a966-fe122519e657" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+"Data not Found"]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<sub-flow name="authenticationFlow" doc:id="302b05b3-5070-4802-a7f1-cd231c063d20" >
+		<http:basic-security-filter doc:name="Basic security filter" doc:id="fdf5846c-943d-484d-93c6-da22829cf19a" realm="mule">
+			<http:security-providers />
+		</http:basic-security-filter>
+		<spring:authorization-filter doc:name="Authorization filter" doc:id="7ab5a40f-cdb8-4ed2-a8d7-ac75d582bd34" requiredAuthorities="ROLE_ADMIN" />
+	</sub-flow>
+</mule>

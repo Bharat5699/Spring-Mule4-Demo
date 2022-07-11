@@ -1,0 +1,22 @@
+{
+	"minMuleVersion": "4.4.0",
+	"secureProperties": [
+		"db.password",
+		"sf.password",
+		"sf.token",
+		"sf.consumer_secret",
+		"email.password",
+		"cloudhub.password"
+	],
+	"classLoaderModelLoaderDescriptor": {
+		"id": "mule",
+		"attributes": {
+			"exportedPackages": [
+				"com.example.demo.service"
+			],
+			"exportedResources": [
+				"beans.xml"
+			]
+		}
+	}
+}
